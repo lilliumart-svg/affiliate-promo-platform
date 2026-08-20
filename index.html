@@ -200,22 +200,14 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <h1 class="display">Samsung × Affiliate Promo — Kazakhstan</h1>
   <p class="sub">«Купи Samsung — получи бонус партнёра».</p>
 
-  <div id="settingsNav" style="display:none;">
-    <p style="margin-bottom:10px;">
-      <a href="#" onclick="event.preventDefault();switchTab('dashboard');" style="color:var(--navy);font-weight:600;font-size:13px;text-decoration:underline;">← Назад на дашборд</a>
-    </p>
-    <div class="tabs">
-      <button class="tab-btn" onclick="switchTab('data')">1. Данные</button>
-      <button class="tab-btn" onclick="switchTab('sim')">2. Бюджет и симулятор</button>
-      <button class="tab-btn" onclick="switchTab('partners')">3. Партнёры</button>
-      <button class="tab-btn" onclick="switchTab('kaspi')">4. Kaspi</button>
-      <button class="tab-btn" onclick="switchTab('landing')">5. Лендинг</button>
-      <button class="tab-btn" onclick="switchTab('bonus')">6. Медиаплан</button>
-    </div>
-  </div>
-
-  <div id="dashboardNavHint" style="margin-bottom:16px;">
-    <button class="btn btn-ghost btn-sm" onclick="switchTab('data')">⚙ Настроить сценарий (данные, бюджет, партнёры...)</button>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">1. Дашборд</button>
+    <button class="tab-btn" onclick="switchTab('data')">2. Данные</button>
+    <button class="tab-btn" onclick="switchTab('sim')">3. Бюджет и симулятор</button>
+    <button class="tab-btn" onclick="switchTab('partners')">4. Партнёры</button>
+    <button class="tab-btn" onclick="switchTab('kaspi')">5. Kaspi</button>
+    <button class="tab-btn" onclick="switchTab('landing')">6. Лендинг</button>
+    <button class="tab-btn" onclick="switchTab('bonus')">7. Медиаплан</button>
   </div>
 
   <div style="display:flex;gap:10px;margin-bottom:24px;">
@@ -442,10 +434,7 @@ function switchTab(id){
   document.getElementById("tab-"+id).classList.add("active");
   if (event && event.target && event.target.classList.contains("tab-btn")) event.target.classList.add("active");
 
-  const onDashboard = id === "dashboard";
-  document.getElementById("settingsNav").style.display = onDashboard ? "none" : "block";
-  document.getElementById("dashboardNavHint").style.display = onDashboard ? "block" : "none";
-  if (onDashboard && window.lastPartnerRanking) recalcFinalDecision(); // safety net: always fresh when landing back home
+  if (id === "dashboard" && window.lastPartnerRanking) recalcFinalDecision(); // safety net: always fresh when landing back home
 }
 
 /* ============ DATA MODEL ============ */
@@ -647,18 +636,18 @@ function renderResults(r){
     {l:"Incremental units", n:fmtNum(r.incrementalUnits)+" шт", sub:"сколько купят ДОПОЛНИТЕЛЬНО благодаря акции (baseline × Uplift%)"},
     {l:"Expected Registrations", n:fmtNum(r.expectedRegistrations)+"", sub:"сколько зарегистрируется по спросу, без учёта лимита бюджета"},
     {l:"Max Fundable Registrations", n:fmtNum(r.maxFundableRegistrations), sub:"сколько реально можно оплатить при текущем бюджете"},
-    {l:"Potential Bonus Liability", n:fmtMoney(r.potentialBonusLiability)},
-    {l:"Partner Co-funding (единая сумма)", n: cofundingOn ? fmtMoney(cofundingAmt) : "Не учитывается"},
-    {l:"Funded Consumer Benefit Spend", n:fmtMoney(r.fundedSpend)},
-    {l:"Budget Coverage", n:r.budgetCoveragePct.toFixed(1)+"%", cls: r.budgetCoveragePct<50?"warn":(r.budgetCoveragePct>=100?"ok":"")},
-    {l:"Samsung Net Consumer-Benefit Cost", n:fmtMoney(r.samsungNetCost)},
-    {l:"Total Campaign Investment", n:fmtMoney(r.totalCampaignInvestment)},
+    {l:"Potential Bonus Liability", n:fmtMoney(r.potentialBonusLiability), sub:"сколько стоило бы оплатить бонус ВСЕМ, кто зарегистрируется, без лимита"},
+    {l:"Partner Co-funding (единая сумма)", n: cofundingOn ? fmtMoney(cofundingAmt) : "Не учитывается", sub:"сколько партнёр добавляет к бюджету Samsung на бонусы"},
+    {l:"Funded Consumer Benefit Spend", n:fmtMoney(r.fundedSpend), sub:"сколько реально выплатим = MIN(Liability; доступный бюджет)"},
+    {l:"Budget Coverage", n:r.budgetCoveragePct.toFixed(1)+"%", cls: r.budgetCoveragePct<50?"warn":(r.budgetCoveragePct>=100?"ok":""), sub:"какую долю спроса на бонус реально покрывает бюджет"},
+    {l:"Samsung Net Consumer-Benefit Cost", n:fmtMoney(r.samsungNetCost), sub:"расход Samsung на бонусы за вычетом co-funding партнёра"},
+    {l:"Total Campaign Investment", n:fmtMoney(r.totalCampaignInvestment), sub:"бонусы (net) + Digital + Offline + Ops + Other — всё вместе"},
     {l:"Incremental Revenue", n:fmtMoney(r.incrementalRevenue), sub:"выручка только с ДОПОЛНИТЕЛЬНЫХ продаж (Incremental units × цена)"},
     {l:"Incremental Gross Profit", n:fmtMoney(r.incrementalGrossProfit), sub:"выручка × маржа% — то, что реально остаётся, не вся выручка"},
     {l:"ROI (по прибыли, не по выручке)", n: r.roiPct!==null ? (r.roiPct>=0?'+':'')+r.roiPct.toFixed(1)+"%" : "—", cls: r.roiPct!==null && r.roiPct<0 ? "warn" : (r.roiPct!==null && r.roiPct>=0 ? "ok" : ""), sub:"(доп. прибыль − вложения) ÷ вложения"},
-    {l:"Cost / Registration (Expected)", n: r.costPerRegExpected!==null ? fmtMoney(r.costPerRegExpected) : "—"},
-    {l:"Cost / Registration (Funded)", n: r.costPerRegFunded!==null ? fmtMoney(r.costPerRegFunded) : "—"},
-    {l:"Cost / Incremental Unit", n: r.costPerIncrementalUnit!==null ? fmtMoney(r.costPerIncrementalUnit) : "—"},
+    {l:"Cost / Registration (Expected)", n: r.costPerRegExpected!==null ? fmtMoney(r.costPerRegExpected) : "—", sub:"инвестиции ÷ Expected Registrations — цена регистрации по спросу"},
+    {l:"Cost / Registration (Funded)", n: r.costPerRegFunded!==null ? fmtMoney(r.costPerRegFunded) : "—", sub:"инвестиции ÷ Max Fundable — реальная цена оплаченной регистрации"},
+    {l:"Cost / Incremental Unit", n: r.costPerIncrementalUnit!==null ? fmtMoney(r.costPerIncrementalUnit) : "—", sub:"сколько стоит привлечь один дополнительный купленный юнит"},
   ];
   document.getElementById("kpiGrid").innerHTML = kpis.map(k=>
     `<div class="kpi ${k.cls||''}"><div class="n">${k.n}</div><div class="l">${k.l}</div>${k.sub?`<div style="font-size:9.5px;color:var(--muted);margin-top:4px;line-height:1.3;">${k.sub}</div>`:''}</div>`).join("");
