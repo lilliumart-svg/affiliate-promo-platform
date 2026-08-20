@@ -197,20 +197,25 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <body>
 <div class="wrap">
   <p class="eyebrow">Affiliate Promo Decision Platform</p>
-  <h1 class="display" style="cursor:pointer;" onclick="switchTab('dashboard')" title="Вернуться к дашборду">Samsung × Affiliate Promo — Kazakhstan</h1>
+  <h1 class="display">Samsung × Affiliate Promo — Kazakhstan</h1>
   <p class="sub">«Купи Samsung — получи бонус партнёра».</p>
 
-  <p style="margin-bottom:10px;">
-    <a href="#" onclick="event.preventDefault();switchTab('dashboard');" style="color:var(--navy);font-weight:600;font-size:13px;text-decoration:underline;">← Дашборд (главный экран)</a>
-  </p>
-  <p style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px;">Настроить сценарий</p>
-  <div class="tabs">
-    <button class="tab-btn" onclick="switchTab('data')">1. Данные</button>
-    <button class="tab-btn" onclick="switchTab('sim')">2. Бюджет и симулятор</button>
-    <button class="tab-btn" onclick="switchTab('partners')">3. Партнёры</button>
-    <button class="tab-btn" onclick="switchTab('kaspi')">4. Kaspi</button>
-    <button class="tab-btn" onclick="switchTab('landing')">5. Лендинг</button>
-    <button class="tab-btn" onclick="switchTab('bonus')">6. Медиаплан</button>
+  <div id="settingsNav" style="display:none;">
+    <p style="margin-bottom:10px;">
+      <a href="#" onclick="event.preventDefault();switchTab('dashboard');" style="color:var(--navy);font-weight:600;font-size:13px;text-decoration:underline;">← Назад на дашборд</a>
+    </p>
+    <div class="tabs">
+      <button class="tab-btn" onclick="switchTab('data')">1. Данные</button>
+      <button class="tab-btn" onclick="switchTab('sim')">2. Бюджет и симулятор</button>
+      <button class="tab-btn" onclick="switchTab('partners')">3. Партнёры</button>
+      <button class="tab-btn" onclick="switchTab('kaspi')">4. Kaspi</button>
+      <button class="tab-btn" onclick="switchTab('landing')">5. Лендинг</button>
+      <button class="tab-btn" onclick="switchTab('bonus')">6. Медиаплан</button>
+    </div>
+  </div>
+
+  <div id="dashboardNavHint" style="margin-bottom:16px;">
+    <button class="btn btn-ghost btn-sm" onclick="switchTab('data')">⚙ Настроить сценарий (данные, бюджет, партнёры...)</button>
   </div>
 
   <div style="display:flex;gap:10px;margin-bottom:24px;">
@@ -287,7 +292,9 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         </div>
         <div class="field"><label>Partner Co-funding, ₸</label>
           <input type="number" id="cofundingAmount" value="2000000" onchange="recalc()"></div>
-        <p class="note" style="margin-top:-6px;">Это единая сумма на всю акцию целиком — не умножается на количество ритейлеров или SKU.</p>
+        <p class="note" style="margin-top:-6px;">Это единая сумма на всю акцию целиком — не умножается на количество ритейлеров или SKU.
+          Разбивка ниже — только для наглядности, чисто информационная (пропорционально объёму продаж ритейлера).</p>
+        <div id="cofundingBreakdown" style="margin-top:10px;"></div>
       </div>
 
       <div class="panel">
@@ -305,6 +312,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
             <input type="range" id="regRateSlider" min="0" max="80" value="30" step="1" oninput="syncFromSlider('regRate', this.value)" style="flex:1;">
             <input type="number" id="regRate" min="0" max="100" value="30" step="1" onchange="syncFromNumber('regRateSlider', this.value)" style="width:70px;">
           </div>
+        </div>
+        <div class="field">
+          <label>Маржа с продажи, % <span style="color:var(--muted);font-weight:400;">(для расчёта ROI — типично 15-25% для бытовой техники)</span></label>
+          <input type="number" id="marginPct" min="0" max="100" value="20" step="1" onchange="recalc()" style="width:100px;">
         </div>
 
         <div class="divider"></div>
@@ -430,14 +441,19 @@ function switchTab(id){
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("tab-"+id).classList.add("active");
   if (event && event.target && event.target.classList.contains("tab-btn")) event.target.classList.add("active");
+
+  const onDashboard = id === "dashboard";
+  document.getElementById("settingsNav").style.display = onDashboard ? "none" : "block";
+  document.getElementById("dashboardNavHint").style.display = onDashboard ? "block" : "none";
+  if (onDashboard && window.lastPartnerRanking) recalcFinalDecision(); // safety net: always fresh when landing back home
 }
 
 /* ============ DATA MODEL ============ */
 let skus = [
-  {category:"Холодильники", sku:"RB37A5200WW", share:0.90, bonus:20000},
-  {category:"Холодильники", sku:"RM90F671CWWT", share:0.10, bonus:100000},
-  {category:"Стиральные машины", sku:"WW80AKAS22AELT", share:0.80, bonus:20000},
-  {category:"Стиральные машины", sku:"WD18DB8999BZLD", share:0.20, bonus:70000},
+  {category:"Холодильники", sku:"RB37A5200WW", share:0.90, bonus:20000, asp:250000},
+  {category:"Холодильники", sku:"RM90F671CWWT", share:0.10, bonus:100000, asp:900000},
+  {category:"Стиральные машины", sku:"WW80AKAS22AELT", share:0.80, bonus:20000, asp:200000},
+  {category:"Стиральные машины", sku:"WD18DB8999BZLD", share:0.20, bonus:70000, asp:450000},
 ];
 let retailers = [
   {name:"Sulpak", wm:1000, ref:1000, active:true},
@@ -453,7 +469,7 @@ function categoryOf(sku){ return sku.category === "Холодильники" ? "
 
 function renderSkuTable(){
   const box = document.getElementById("skuTable");
-  box.innerHTML = `<tr><th>Категория</th><th>SKU</th><th>Доля продаж, %</th><th>Бонус, ₸</th><th></th></tr>` +
+  box.innerHTML = `<tr><th>Категория</th><th>SKU</th><th>Доля продаж, %</th><th>Бонус, ₸</th><th>Цена продажи (ASP), ₸</th><th></th></tr>` +
     skus.map((s,i) => `<tr>
       <td><select onchange="updateSku(${i},'category',this.value)">
         <option ${s.category==="Холодильники"?"selected":""}>Холодильники</option>
@@ -462,14 +478,15 @@ function renderSkuTable(){
       <td><input value="${s.sku}" onchange="updateSku(${i},'sku',this.value)"></td>
       <td><input type="number" value="${Math.round(s.share*100)}" onchange="updateSku(${i},'share',this.value/100)" style="width:80px;"></td>
       <td><input type="number" value="${s.bonus}" onchange="updateSku(${i},'bonus',this.value)" style="width:100px;"></td>
+      <td><input type="number" value="${s.asp||0}" onchange="updateSku(${i},'asp',this.value)" style="width:110px;"></td>
       <td><button class="btn btn-ghost btn-sm" onclick="removeSku(${i})">✕</button></td>
     </tr>`).join("");
 }
 function updateSku(i, field, val){
-  skus[i][field] = (field==="share"||field==="bonus") ? parseFloat(val)||0 : val;
+  skus[i][field] = (field==="share"||field==="bonus"||field==="asp") ? parseFloat(val)||0 : val;
   recalc();
 }
-function addSkuRow(){ skus.push({category:"Холодильники", sku:"", share:0, bonus:0}); renderSkuTable(); renderSkuToggles(); recalc(); }
+function addSkuRow(){ skus.push({category:"Холодильники", sku:"", share:0, bonus:0, asp:0}); renderSkuTable(); renderSkuToggles(); recalc(); }
 function removeSku(i){ skus.splice(i,1); renderSkuTable(); renderSkuToggles(); recalc(); }
 
 function renderRetailerTable(){
@@ -523,7 +540,7 @@ function renderSkuToggles(){
 /* ============ CORE CALCULATION ENGINE — matches FORMULAS.md exactly ============ */
 function computeSimulation(inputs){
   const { skus, retailers, periodMonths, promoBudget, digitalBudget, offlineBudget,
-          opsBudget, otherBudget, cofundingOn, cofundingAmount, salesUplift, regRate } = inputs;
+          opsBudget, otherBudget, cofundingOn, cofundingAmount, salesUplift, regRate, marginPct } = inputs;
 
   const activeRetailers = retailers.filter(r => r.active);
   const activeSkus = skus.filter(s => s.active !== false);
@@ -569,11 +586,27 @@ function computeSimulation(inputs){
   const costPerRegFunded = maxFundableRegistrations > 0 ? totalCampaignInvestment / maxFundableRegistrations : null;
   const costPerIncrementalUnit = incrementalUnits > 0 ? totalCampaignInvestment / incrementalUnits : null;
 
+  // --- Step 8: what the investment actually buys — incremental revenue and ROI ---
+  // incremental units per SKU = each SKU's own share of the total incremental volume,
+  // valued at that SKU's own ASP (not an average) — matches the same proportional
+  // scale-up already used for promoUnits/registrations per SKU.
+  const incrementalRevenue = skuWithRegs.reduce((sum,s) => {
+    const skuIncremental = s.baseline * (salesUplift/100);
+    return sum + skuIncremental * (s.asp || 0);
+  }, 0);
+  // ROI is computed on GROSS PROFIT, not raw revenue — revenue includes cost of goods,
+  // so dividing full revenue by campaign spend wildly overstates return. marginPct is an
+  // explicit, editable assumption (default 20% — typical appliance retail margin).
+  const incrementalGrossProfit = incrementalRevenue * (marginPct/100);
+  const roiPct = totalCampaignInvestment > 0 ? ((incrementalGrossProfit - totalCampaignInvestment) / totalCampaignInvestment) * 100 : null;
+  const roasX = totalCampaignInvestment > 0 ? incrementalRevenue / totalCampaignInvestment : null;
+
   return {
     eligibleBaseline, incrementalUnits, totalPromoUnits, expectedRegistrations,
     potentialBonusLiability, effectiveFundingPool, fundedSpend, budgetCoveragePct,
     samsungNetCost, maxFundableRegistrations, totalCampaignInvestment,
     costPerRegExpected, costPerRegFunded, costPerIncrementalUnit,
+    incrementalRevenue, incrementalGrossProfit, roiPct, roasX,
     skuLiability, avgBonusPerReg,
   };
 }
@@ -591,6 +624,7 @@ function gatherInputs(){
     cofundingAmount: parseFloat(document.getElementById("cofundingAmount").value) || 0,
     salesUplift: parseFloat(document.getElementById("salesUplift").value) || 0,
     regRate: parseFloat(document.getElementById("regRate").value) || 0,
+    marginPct: parseFloat(document.getElementById("marginPct").value) || 0,
   };
 }
 
@@ -609,22 +643,25 @@ function renderResults(r){
   const cofundingOn = document.getElementById("cofundingToggle").checked;
   const cofundingAmt = parseFloat(document.getElementById("cofundingAmount").value) || 0;
   const kpis = [
-    {l:"Eligible baseline", n:fmtNum(r.eligibleBaseline)+" шт"},
-    {l:"Incremental units", n:fmtNum(r.incrementalUnits)+" шт"},
-    {l:"Expected Registrations", n:fmtNum(r.expectedRegistrations)},
-    {l:"Max Fundable Registrations", n:fmtNum(r.maxFundableRegistrations)},
+    {l:"Eligible baseline", n:fmtNum(r.eligibleBaseline)+" шт", sub:"сколько купили бы и без акции — при выбранных ритейлерах/SKU"},
+    {l:"Incremental units", n:fmtNum(r.incrementalUnits)+" шт", sub:"сколько купят ДОПОЛНИТЕЛЬНО благодаря акции (baseline × Uplift%)"},
+    {l:"Expected Registrations", n:fmtNum(r.expectedRegistrations)+"", sub:"сколько зарегистрируется по спросу, без учёта лимита бюджета"},
+    {l:"Max Fundable Registrations", n:fmtNum(r.maxFundableRegistrations), sub:"сколько реально можно оплатить при текущем бюджете"},
     {l:"Potential Bonus Liability", n:fmtMoney(r.potentialBonusLiability)},
     {l:"Partner Co-funding (единая сумма)", n: cofundingOn ? fmtMoney(cofundingAmt) : "Не учитывается"},
     {l:"Funded Consumer Benefit Spend", n:fmtMoney(r.fundedSpend)},
     {l:"Budget Coverage", n:r.budgetCoveragePct.toFixed(1)+"%", cls: r.budgetCoveragePct<50?"warn":(r.budgetCoveragePct>=100?"ok":"")},
     {l:"Samsung Net Consumer-Benefit Cost", n:fmtMoney(r.samsungNetCost)},
     {l:"Total Campaign Investment", n:fmtMoney(r.totalCampaignInvestment)},
+    {l:"Incremental Revenue", n:fmtMoney(r.incrementalRevenue), sub:"выручка только с ДОПОЛНИТЕЛЬНЫХ продаж (Incremental units × цена)"},
+    {l:"Incremental Gross Profit", n:fmtMoney(r.incrementalGrossProfit), sub:"выручка × маржа% — то, что реально остаётся, не вся выручка"},
+    {l:"ROI (по прибыли, не по выручке)", n: r.roiPct!==null ? (r.roiPct>=0?'+':'')+r.roiPct.toFixed(1)+"%" : "—", cls: r.roiPct!==null && r.roiPct<0 ? "warn" : (r.roiPct!==null && r.roiPct>=0 ? "ok" : ""), sub:"(доп. прибыль − вложения) ÷ вложения"},
     {l:"Cost / Registration (Expected)", n: r.costPerRegExpected!==null ? fmtMoney(r.costPerRegExpected) : "—"},
     {l:"Cost / Registration (Funded)", n: r.costPerRegFunded!==null ? fmtMoney(r.costPerRegFunded) : "—"},
     {l:"Cost / Incremental Unit", n: r.costPerIncrementalUnit!==null ? fmtMoney(r.costPerIncrementalUnit) : "—"},
   ];
   document.getElementById("kpiGrid").innerHTML = kpis.map(k=>
-    `<div class="kpi ${k.cls||''}"><div class="n">${k.n}</div><div class="l">${k.l}</div></div>`).join("");
+    `<div class="kpi ${k.cls||''}"><div class="n">${k.n}</div><div class="l">${k.l}</div>${k.sub?`<div style="font-size:9.5px;color:var(--muted);margin-top:4px;line-height:1.3;">${k.sub}</div>`:''}</div>`).join("");
 
   const suggestBox = document.getElementById("suggestBox");
   if (r.budgetCoveragePct < 100){
@@ -774,7 +811,7 @@ const MECHANICS = {
   "Yandex Kazakhstan": [
     {title:"Cashback in Yandex Wallet", slogan:"Покупай Samsung — получай кэшбэк на Yandex прямо на баланс", insight:"Пользователи Yandex привыкли к быстрому видимому кэшбэку — покупка + регистрация чека начисляет кэшбэк на баланс Yandex, который сразу можно потратить на такси/еду.", benefits:"Высокая вирусность за счёт мгновенной выгоды; охватывает ежедневных пользователей экосистемы.", risks:"Кэшбэк выглядит \"мелким\" на фоне цены техники — нужен достаточный размер.", skus:"Все SKU, особенно доступные модели (WW80AKAS22AELT, RB37A5200WW)"},
     {title:"Yandex Plus бонусные баллы", slogan:"Больше баллов Plus за каждую покупку Samsung", insight:"Подписчики Plus ценят накопление баллов больше разового кэшбэка.", benefits:"Удерживает уже лояльную, платящую аудиторию.", risks:"Работает только на подписчиков Plus — меньший охват.", skus:"Премиальные SKU (RM90F671CWWT, WD18DB8999BZLD)"},
-    {title:"Промокод на поездку за покупкой", slogan:"Бесплатная поездка за новой техникой Samsung", insight:"Логистика крупной техники — реальный барьер покупки; бесплатная поездка снимает его.", benefits:"Решает конкретную боль покупателя, низкая стоимость на единицу.", risks:"Не мотивирует саму покупку — слабее влияет на uplift.", skus:"Крупногабаритные SKU (холодильники)"},
+    {title:"Промокод на поездку за покупкой", slogan:"Бесплатная поездка за новой техникой Samsung", insight:"Логистика крупной техники — реальный барьер покупки; бесплатная поездка снимает его.", benefits:"Решает конкретную боль покупателя, низкая стоимость на единицу.", risks:"Слабо отслеживается — нет способа подтвердить, что поездка была именно за покупкой Samsung, а не использована как обычное такси. Требует доп. верификации (например, привязка к геолокации магазина-партнёра) прежде чем масштабировать.", skus:"Крупногабаритные SKU (холодильники)"},
   ],
   "Arbuz.kz": [
     {title:"Скидка на продукты при покупке техники", slogan:"Купи технику Samsung — получи скидку на продукты в Arbuz.kz", insight:"Покупатель крупной техники часто планирует бюджет на дом в целом — скидка на продукты логично продолжает \"домашний\" контекст.", benefits:"Высокая релевантность аудитории, понятная механика.", risks:"Не создаёт сильной эмоциональной связи с брендом Samsung.", skus:"Стиральные машины и холодильники — оба про быт/кухню"},
@@ -973,15 +1010,17 @@ function computeFinalDecision(){
   const chosenPartner = isOverridden ? {name: overrideName, score: partners.find(p=>p.name===overrideName) ? computePartnerScore(partners.find(p=>p.name===overrideName)) : 0} : top;
 
   const mechanics = MECHANICS[chosenPartner.name] || [];
-  // primary mechanic is chosen by rule, not fixed order: healthy budget -> flagship/bigger-commitment
-  // mechanic (index 0); tight budget -> the lower-commitment option (index 2); otherwise the middle one.
-  // Reruns automatically whenever budget coverage changes — not a static pick.
-  let mechIdx = 1;
-  if (r.budgetCoveragePct >= 70) mechIdx = 0;
-  else if (r.budgetCoveragePct < 40) mechIdx = 2;
-  mechIdx = Math.min(mechIdx, mechanics.length - 1);
-  const primaryMechanic = mechanics[mechIdx];
-  const altMechanics = mechanics.filter((_,i) => i !== mechIdx);
+  // primary mechanic is chosen by rule, not fixed order: healthy budget -> flagship
+  // mechanic (index 0, usually cashback/points — highest cost but best conversion);
+  // tight budget -> the lower-cost, still-trackable option (index 1).
+  // The 3rd mechanic per partner is intentionally never auto-selected as primary —
+  // it's typically the weakest-tracked option (e.g. a taxi promo code has no way to
+  // confirm the ride was actually for a Samsung purchase) — it stays available as an
+  // alternative for the marketer to pick manually if they've solved the verification problem.
+  const mechIdx = r.budgetCoveragePct >= 70 ? 0 : 1;
+  const cappedIdx = Math.min(mechIdx, mechanics.length - 1);
+  const primaryMechanic = mechanics[cappedIdx];
+  const altMechanics = mechanics.filter((_,i) => i !== cappedIdx);
 
   const retailerOverride = document.getElementById("landingRetailerOverride") ? document.getElementById("landingRetailerOverride").value : "";
   const activeRetailers = retailerOverride === "all" ? retailers.map(x=>x.name) : retailers.filter(x=>x.active).map(x=>x.name);
@@ -1044,6 +1083,15 @@ function renderFinalDecision(d){
           <p style="font-size:13.5px;color:#C7CCE0;max-width:520px;">${d.primaryMechanic ? d.primaryMechanic.title + ' — ' + d.primaryMechanic.insight : ''}</p>
         </div>
         <div style="display:flex;gap:24px;flex-wrap:wrap;">
+          <div style="text-align:center;">
+            <div style="font-size:22px;font-weight:700;color:${r.roiPct===null?'#fff':(r.roiPct<0?'#F3A6A6':'#8FE3B8')};">${r.roiPct!==null ? (r.roiPct>=0?'+':'')+r.roiPct.toFixed(0)+'%' : '—'}</div>
+            <div style="font-size:10.5px;color:#9BA3C0;text-transform:uppercase;">ROI</div>
+            <div style="font-size:9.5px;color:#6B7AA3;max-width:130px;margin-top:2px;">прибыль с доп. продаж (не выручка) vs вложения</div>
+          </div>
+          <div style="text-align:center;">
+            <div style="font-size:22px;font-weight:700;">${fmtMoney(r.incrementalRevenue)}</div>
+            <div style="font-size:10.5px;color:#9BA3C0;text-transform:uppercase;">Доп. выручка</div>
+          </div>
           <div style="text-align:center;">
             <div style="font-size:22px;font-weight:700;">${fmtMoney(r.totalCampaignInvestment)}</div>
             <div style="font-size:10.5px;color:#9BA3C0;text-transform:uppercase;">Total Investment</div>
@@ -1507,6 +1555,27 @@ function updateChannelBudget(i, newAmount){
   renderMediaPlan();
 }
 
+function renderCofundingBreakdown(){
+  const box = document.getElementById("cofundingBreakdown");
+  if (!box) return;
+  const cofundingOn = document.getElementById("cofundingToggle").checked;
+  const cofundingAmt = parseFloat(document.getElementById("cofundingAmount").value) || 0;
+  if (!cofundingOn || cofundingAmt <= 0) { box.innerHTML = ""; return; }
+
+  const activeR = retailers.filter(r=>r.active);
+  const totalVolume = activeR.reduce((s,r)=>s + r.wm + r.ref, 0);
+  if (totalVolume <= 0) { box.innerHTML = `<p class="note">Нет активных ритейлеров с объёмом продаж для разбивки.</p>`; return; }
+
+  const rows = activeR.map(r => {
+    const share = (r.wm + r.ref) / totalVolume;
+    return `<tr><td>${r.name}</td><td>${(share*100).toFixed(1)}%</td><td>${fmtMoney(cofundingAmt*share)}</td></tr>`;
+  }).join("");
+  box.innerHTML = `<table style="max-width:420px;">
+    <tr><th>Ритейлер</th><th>Доля объёма</th><th>Условная доля co-funding</th></tr>
+    ${rows}
+  </table>`;
+}
+
 function renderMediaPlan(){
   const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
   document.getElementById("mediaPoolInput").value = Math.round(digitalBudget);
@@ -1619,6 +1688,7 @@ function recalc(){
     const result = computeSimulation(inputs);
     window.lastResult = result; // exposed for testing and later export modules
     renderResults(result);
+    renderCofundingBreakdown();
     recalcKaspi();
   } catch(err) { showRenderError(err); }
 }
