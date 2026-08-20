@@ -197,13 +197,13 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <body>
 <div class="wrap">
   <p class="eyebrow">Affiliate Promo Decision Platform</p>
-  <h1 class="display">Samsung × Affiliate Promo — Kazakhstan</h1>
+  <h1 class="display" style="cursor:pointer;" onclick="switchTab('dashboard')" title="Вернуться к дашборду">Samsung × Affiliate Promo — Kazakhstan</h1>
   <p class="sub">«Купи Samsung — получи бонус партнёра».</p>
 
-  <div class="tabs">
-    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Дашборд</button>
-  </div>
-  <p style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:-8px 0 8px;">Настроить сценарий</p>
+  <p style="margin-bottom:10px;">
+    <a href="#" onclick="event.preventDefault();switchTab('dashboard');" style="color:var(--navy);font-weight:600;font-size:13px;text-decoration:underline;">← Дашборд (главный экран)</a>
+  </p>
+  <p style="font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:0 0 8px;">Настроить сценарий</p>
   <div class="tabs">
     <button class="tab-btn" onclick="switchTab('data')">1. Данные</button>
     <button class="tab-btn" onclick="switchTab('sim')">2. Бюджет и симулятор</button>
@@ -260,6 +260,12 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 
   <!-- ============ TAB 2: BUDGET & PROMO SIMULATOR ============ -->
   <div id="tab-sim" class="tab-panel">
+    <div class="panel">
+      <h2>Результат — живой пересчёт</h2>
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div id="suggestBox"></div>
+    </div>
+
     <div class="grid2">
       <div class="panel">
         <h2>Бюджет кампании</h2>
@@ -281,6 +287,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
         </div>
         <div class="field"><label>Partner Co-funding, ₸</label>
           <input type="number" id="cofundingAmount" value="2000000" onchange="recalc()"></div>
+        <p class="note" style="margin-top:-6px;">Это единая сумма на всю акцию целиком — не умножается на количество ритейлеров или SKU.</p>
       </div>
 
       <div class="panel">
@@ -308,15 +315,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
     </div>
 
     <div class="panel">
-      <h2>Результат — живой пересчёт</h2>
-      <div class="kpi-grid" id="kpiGrid"></div>
-      <div id="suggestBox"></div>
-    </div>
-
-    <div class="panel">
       <h2>Bonus Liability по SKU</h2>
       <table id="liabilityTable"></table>
     </div>
+
+    <div id="liabilityCharts"></div>
   </div>
 
   <!-- ============ TAB 3: PARTNER SCORING + PROMO GENERATOR ============ -->
@@ -402,7 +405,11 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <div id="tab-bonus" class="tab-panel">
     <div class="panel">
       <h2>Digital Media Plan</h2>
-      <p class="note" style="margin-bottom:14px;">Общий пул — Digital Marketing Budget из вкладки 2 (<span id="mediaPoolLabel"></span>). Доли каналов редактируются, сумма нормализуется автоматически.</p>
+      <p class="note" style="margin-bottom:10px;">Доли каналов редактируются (в % или в ₸), сумма долей нормализуется автоматически.</p>
+      <div class="field" style="max-width:260px;margin-bottom:16px;">
+        <label>Общий Digital Marketing Budget, ₸</label>
+        <input type="number" id="mediaPoolInput" min="0" onchange="syncDigitalBudget(this.value)">
+      </div>
       <div style="overflow-x:auto;">
         <table id="mediaPlanTable"></table>
       </div>
@@ -422,7 +429,7 @@ function switchTab(id){
   document.querySelectorAll(".tab-panel").forEach(p=>p.classList.remove("active"));
   document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("tab-"+id).classList.add("active");
-  event.target.classList.add("active");
+  if (event && event.target && event.target.classList.contains("tab-btn")) event.target.classList.add("active");
 }
 
 /* ============ DATA MODEL ============ */
@@ -599,12 +606,15 @@ function syncFromNumber(sliderId, val){
 }
 
 function renderResults(r){
+  const cofundingOn = document.getElementById("cofundingToggle").checked;
+  const cofundingAmt = parseFloat(document.getElementById("cofundingAmount").value) || 0;
   const kpis = [
     {l:"Eligible baseline", n:fmtNum(r.eligibleBaseline)+" шт"},
     {l:"Incremental units", n:fmtNum(r.incrementalUnits)+" шт"},
     {l:"Expected Registrations", n:fmtNum(r.expectedRegistrations)},
     {l:"Max Fundable Registrations", n:fmtNum(r.maxFundableRegistrations)},
     {l:"Potential Bonus Liability", n:fmtMoney(r.potentialBonusLiability)},
+    {l:"Partner Co-funding (единая сумма)", n: cofundingOn ? fmtMoney(cofundingAmt) : "Не учитывается"},
     {l:"Funded Consumer Benefit Spend", n:fmtMoney(r.fundedSpend)},
     {l:"Budget Coverage", n:r.budgetCoveragePct.toFixed(1)+"%", cls: r.budgetCoveragePct<50?"warn":(r.budgetCoveragePct>=100?"ok":"")},
     {l:"Samsung Net Consumer-Benefit Cost", n:fmtMoney(r.samsungNetCost)},
@@ -639,6 +649,54 @@ function renderResults(r){
       <td>${fmtNum(s.promoUnits)}</td><td>${fmtNum(s.registrations)}</td>
       <td>${fmtMoney(s.bonus)}</td><td>${fmtMoney(s.liability)}</td>
     </tr>`).join("");
+
+  renderLiabilityCharts(r.skuLiability);
+}
+
+function barChartHtml(title, items, colorHex, valueFmt){
+  const max = Math.max(...items.map(x=>x.value), 1);
+  const rows = items.map(x => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+      <div style="width:140px;font-size:11.5px;color:#374151;text-align:right;flex-shrink:0;">${x.label}</div>
+      <div style="flex:1;background:#F3F4F6;border-radius:5px;height:18px;overflow:hidden;">
+        <div style="width:${(x.value/max*100).toFixed(1)}%;background:${colorHex};height:100%;"></div>
+      </div>
+      <div style="width:90px;font-size:11.5px;font-weight:600;color:var(--navy);">${valueFmt(x.value)}</div>
+    </div>`).join("");
+  return `<div class="panel" style="margin-bottom:0;"><h2>${title}</h2>${rows}</div>`;
+}
+
+function renderLiabilityCharts(skuLiability){
+  const box = document.getElementById("liabilityCharts");
+  if (!box) return;
+  const rows2 = skuLiability.map(s => {
+    const max = Math.max(...skuLiability.flatMap(x=>[x.promoUnits, x.registrations]), 1);
+    return `
+    <div style="margin-bottom:12px;">
+      <div style="font-size:11.5px;color:var(--navy);font-weight:600;margin-bottom:4px;">${s.sku}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:3px;">
+        <div style="width:80px;font-size:10.5px;color:var(--muted);">юниты</div>
+        <div style="flex:1;background:#F3F4F6;border-radius:4px;height:14px;overflow:hidden;"><div style="width:${(s.promoUnits/max*100).toFixed(1)}%;background:#C24545;height:100%;"></div></div>
+        <div style="width:60px;font-size:10.5px;">${fmtNum(s.promoUnits)}</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div style="width:80px;font-size:10.5px;color:var(--muted);">регистр.</div>
+        <div style="flex:1;background:#F3F4F6;border-radius:4px;height:14px;overflow:hidden;"><div style="width:${(s.registrations/max*100).toFixed(1)}%;background:#1B2559;height:100%;"></div></div>
+        <div style="width:60px;font-size:10.5px;">${fmtNum(s.registrations)}</div>
+      </div>
+    </div>`;
+  }).join("");
+
+  const liabilityChart = barChartHtml(
+    "Bonus Liability по SKU",
+    skuLiability.map(s => ({label: s.sku, value: s.liability})),
+    "#C9973E", v => fmtMoney(v)
+  );
+
+  box.innerHTML = `<div class="grid2">
+    <div class="panel" style="margin-bottom:0;"><h2>Юниты в промо и регистрации по SKU</h2>${rows2}</div>
+    ${liabilityChart}
+  </div>`;
 }
 
 /* ============ PARTNER SCORING (rule-based, transparent) ============ */
@@ -781,18 +839,33 @@ function renderScoringTable(){
   box.innerHTML = head + rows;
 }
 
+function showRenderError(err){
+  console.error("Render error:", err);
+  const hero = document.getElementById("dashboardHero");
+  if (hero) {
+    hero.innerHTML = `<div class="panel" style="border-color:var(--red);">
+      <h2 style="color:var(--red);">Что-то пошло не так при пересчёте</h2>
+      <p class="note">Ошибка: ${(err && err.message) || err}. Открой консоль браузера (F12) для деталей.
+      Попробуй отменить последнее изменение или обнови страницу — данные не сохраняются между
+      обновлениями, так что если проблема пропала, просто введи значения заново.</p>
+    </div>`;
+  }
+}
+
 function renderPartnerRanking(){
-  const scored = partners.map(p => ({name:p.name, score:computePartnerScore(p)}));
-  scored.sort((a,b) => b.score - a.score);
-  window.lastPartnerRanking = scored;
-  document.getElementById("partnerRanking").innerHTML = scored.map((s,i) => `
-    <div class="kpi ${i===0?'ok':''}" style="text-align:center;">
-      ${PARTNER_LOGOS[s.name] ? `<img src="${PARTNER_LOGOS[s.name]}" style="height:28px;margin-bottom:8px;">` : ''}
-      <div class="n">${s.score.toFixed(2)} / 10</div>
-      <div class="l">#${i+1} — ${s.name}</div>
-    </div>`).join("");
-  renderMechanics(scored[0].name);
-  if (window.lastResult) recalcFinalDecision();
+  try {
+    const scored = partners.map(p => ({name:p.name, score:computePartnerScore(p)}));
+    scored.sort((a,b) => b.score - a.score);
+    window.lastPartnerRanking = scored;
+    document.getElementById("partnerRanking").innerHTML = scored.map((s,i) => `
+      <div class="kpi ${i===0?'ok':''}" style="text-align:center;">
+        ${PARTNER_LOGOS[s.name] ? `<img src="${PARTNER_LOGOS[s.name]}" style="height:28px;margin-bottom:8px;">` : ''}
+        <div class="n">${s.score.toFixed(2)} / 10</div>
+        <div class="l">#${i+1} — ${s.name}</div>
+      </div>`).join("");
+    renderMechanics(scored[0].name);
+    if (window.lastResult) recalcFinalDecision();
+  } catch(err) { showRenderError(err); }
 }
 
 function renderMechanics(topPartnerName){
@@ -900,8 +973,15 @@ function computeFinalDecision(){
   const chosenPartner = isOverridden ? {name: overrideName, score: partners.find(p=>p.name===overrideName) ? computePartnerScore(partners.find(p=>p.name===overrideName)) : 0} : top;
 
   const mechanics = MECHANICS[chosenPartner.name] || [];
-  const primaryMechanic = mechanics[0];
-  const altMechanics = mechanics.slice(1);
+  // primary mechanic is chosen by rule, not fixed order: healthy budget -> flagship/bigger-commitment
+  // mechanic (index 0); tight budget -> the lower-commitment option (index 2); otherwise the middle one.
+  // Reruns automatically whenever budget coverage changes — not a static pick.
+  let mechIdx = 1;
+  if (r.budgetCoveragePct >= 70) mechIdx = 0;
+  else if (r.budgetCoveragePct < 40) mechIdx = 2;
+  mechIdx = Math.min(mechIdx, mechanics.length - 1);
+  const primaryMechanic = mechanics[mechIdx];
+  const altMechanics = mechanics.filter((_,i) => i !== mechIdx);
 
   const retailerOverride = document.getElementById("landingRetailerOverride") ? document.getElementById("landingRetailerOverride").value : "";
   const activeRetailers = retailerOverride === "all" ? retailers.map(x=>x.name) : retailers.filter(x=>x.active).map(x=>x.name);
@@ -975,10 +1055,15 @@ function renderFinalDecision(d){
           <div style="text-align:center;">
             <div style="font-size:22px;font-weight:700;color:${confColor==='var(--red)'?'#F3A6A6':confColor==='var(--amber)'?'#F5D68A':'#8FE3B8'};">${d.confidence}</div>
             <div style="font-size:10.5px;color:#9BA3C0;text-transform:uppercase;">Confidence</div>
+            <div style="font-size:9.5px;color:#6B7AA3;max-width:130px;margin-top:2px;">насколько устойчива рекомендация</div>
           </div>
           <div style="text-align:center;">
             <div style="font-size:22px;font-weight:700;">${d.kaspiDecision}</div>
             <div style="font-size:10.5px;color:#9BA3C0;text-transform:uppercase;">Kaspi.kz</div>
+            <div style="font-size:9.5px;color:#6B7AA3;max-width:130px;margin-top:2px;">${{
+              "Include":"запускать сразу", "Test":"пилот на части бюджета",
+              "Phase 2":"отложить, не сейчас", "Do Not Include":"не запускать"
+            }[d.kaspiDecision] || ''}</div>
           </div>
         </div>
       </div>
@@ -1139,7 +1224,7 @@ function buildLandingHtml(d){
 
       <h3 style="font-family:'Space Grotesk',sans-serif;color:var(--navy);margin-bottom:16px;">Как получить бонус</h3>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:32px;">
-        <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--gold);margin-bottom:6px;">1</div><div style="font-size:12.5px;color:#374151;">Купите одну из участвующих моделей Samsung в ${d.activeRetailers[0]||'магазине-партнёре'}</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--gold);margin-bottom:6px;">1</div><div style="font-size:12.5px;color:#374151;">Купите одну из участвующих моделей Samsung в ${d.activeRetailers.length ? d.activeRetailers.join(", ") : 'магазине-партнёре'}</div></div>
         <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--gold);margin-bottom:6px;">2</div><div style="font-size:12.5px;color:#374151;">Зарегистрируйте чек на этой странице — фото или номер чека</div></div>
         <div style="text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--gold);margin-bottom:6px;">3</div><div style="font-size:12.5px;color:#374151;">Получите бонус от ${d.topPartner} в течение 5 рабочих дней</div></div>
       </div>
@@ -1392,6 +1477,22 @@ const MEDIA_CHANNELS = [
   {key:"influencer", name:"Influencer/UGC", role:"Consideration / Trust", kpi:"Engagement Rate, Reach", pct:15, benchmark:2500, unit:"CPM", metric:"показы"},
 ];
 
+function syncDigitalBudget(val){
+  document.getElementById("digitalBudget").value = Math.max(0, parseFloat(val) || 0);
+  recalc();
+}
+
+function updateChannelPct(i, newPct){
+  newPct = Math.max(0, Math.min(100, parseFloat(newPct) || 0));
+  const oldOtherTotal = MEDIA_CHANNELS.reduce((s,c,idx) => idx===i ? s : s+c.pct, 0);
+  const remaining = Math.max(0, 100 - newPct);
+  MEDIA_CHANNELS.forEach((c,idx) => {
+    if (idx === i) { c.pct = newPct; }
+    else if (oldOtherTotal > 0) { c.pct = (c.pct / oldOtherTotal) * remaining; }
+  });
+  renderMediaPlan();
+}
+
 function updateChannelBudget(i, newAmount){
   const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
   if (digitalBudget <= 0) return;
@@ -1408,7 +1509,7 @@ function updateChannelBudget(i, newAmount){
 
 function renderMediaPlan(){
   const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
-  document.getElementById("mediaPoolLabel").textContent = fmtMoney(digitalBudget);
+  document.getElementById("mediaPoolInput").value = Math.round(digitalBudget);
 
   const totalPct = MEDIA_CHANNELS.reduce((s,c)=>s+c.pct, 0) || 1;
 
@@ -1420,7 +1521,7 @@ function renderMediaPlan(){
     return `<tr>
       <td><b>${c.name}</b></td>
       <td>${c.role}</td>
-      <td><input type="number" min="0" max="100" value="${normPct.toFixed(1)}" style="width:60px;" onchange="MEDIA_CHANNELS[${i}].pct=parseFloat(this.value)||0;renderMediaPlan();"></td>
+      <td><input type="number" min="0" max="100" value="${normPct.toFixed(1)}" style="width:60px;" onchange="updateChannelPct(${i}, this.value)"></td>
       <td><input type="number" min="0" value="${Math.round(allocated)}" style="width:110px;" onchange="updateChannelBudget(${i}, this.value)"></td>
       <td style="font-size:11px;color:var(--muted);">${c.kpi}</td>
       <td>≈ ${fmtNum(effect)} ${c.metric} <span style="color:var(--muted);font-size:10px;">(при ${c.unit} ${fmtMoney(c.benchmark)})</span></td>
@@ -1513,11 +1614,13 @@ function recalcKaspi(){
 }
 
 function recalc(){
-  const inputs = gatherInputs();
-  const result = computeSimulation(inputs);
-  window.lastResult = result; // exposed for testing and later export modules
-  renderResults(result);
-  recalcKaspi();
+  try {
+    const inputs = gatherInputs();
+    const result = computeSimulation(inputs);
+    window.lastResult = result; // exposed for testing and later export modules
+    renderResults(result);
+    recalcKaspi();
+  } catch(err) { showRenderError(err); }
 }
 
 function importSalesFile(ev){
