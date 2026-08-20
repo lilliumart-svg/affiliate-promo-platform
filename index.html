@@ -197,7 +197,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 <div class="wrap">
   <p class="eyebrow">Affiliate Promo Decision Platform</p>
   <h1 class="display">Samsung × Affiliate Promo — Kazakhstan</h1>
-  <p class="sub">«Купи Samsung — получи бонус партнёра». Локально, офлайн, без передачи данных наружу.</p>
+  <p class="sub">«Купи Samsung — получи бонус партнёра».</p>
 
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('data')">1. Данные и допущения</button>
@@ -273,14 +273,20 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       </div>
 
       <div class="panel">
-        <h2>Допущения (Base Demo Scenario — редактируемые, не бенчмарк Samsung)</h2>
+        <h2>Допущения кампании (редактируемые значения для расчёта — не бенчмарк Samsung)</h2>
         <div class="field">
-          <label>Sales Uplift, % <span id="upliftVal" style="color:var(--navy);font-weight:600;"></span></label>
-          <input type="range" id="salesUplift" min="0" max="60" value="15" step="1" oninput="recalc()">
+          <label>Sales Uplift, %</label>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="range" id="salesUpliftSlider" min="0" max="60" value="15" step="1" oninput="syncFromSlider('salesUplift', this.value)" style="flex:1;">
+            <input type="number" id="salesUplift" min="0" max="200" value="15" step="1" onchange="syncFromNumber('salesUpliftSlider', this.value)" style="width:70px;">
+          </div>
         </div>
         <div class="field">
-          <label>Registration Rate, % <span id="regRateVal" style="color:var(--navy);font-weight:600;"></span></label>
-          <input type="range" id="regRate" min="0" max="80" value="30" step="1" oninput="recalc()">
+          <label>Registration Rate, %</label>
+          <div style="display:flex;gap:10px;align-items:center;">
+            <input type="range" id="regRateSlider" min="0" max="80" value="30" step="1" oninput="syncFromSlider('regRate', this.value)" style="flex:1;">
+            <input type="number" id="regRate" min="0" max="100" value="30" step="1" onchange="syncFromNumber('regRateSlider', this.value)" style="width:70px;">
+          </div>
         </div>
 
         <div class="divider"></div>
@@ -368,9 +374,30 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   <!-- ============ TAB 5: FINAL DECISION SCREEN ============ -->
   <div id="tab-decision" class="tab-panel">
     <div class="panel">
+      <h2>Переопределить рекомендацию вручную</h2>
+      <p class="note" style="margin-bottom:12px;">По умолчанию — партнёр с лучшим score. Можно выбрать другого вручную для лендинга и экспорта — например, чтобы посмотреть сценарий с другим партнёром или показать всех ритейлеров на лендинге, даже если они выключены в симуляторе.</p>
+      <div class="field" style="max-width:320px;">
+        <label>Партнёр для лендинга/экспорта</label>
+        <select id="partnerOverride" onchange="recalcFinalDecision()">
+          <option value="">Авто (лучший score)</option>
+          ${partners.map(p=>`<option value="${p.name}">${p.name}</option>`).join("")}
+        </select>
+      </div>
+      <div class="field" style="max-width:320px;">
+        <label>Ритейлеры на лендинге</label>
+        <select id="landingRetailerOverride" onchange="recalcFinalDecision()">
+          <option value="">Как в симуляторе (активные)</option>
+          <option value="all">Показать всех ритейлеров</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="panel">
       <h2>Что запускать? Почему? Сколько? Какой результат?</h2>
       <div class="grid2" id="decisionColumns"></div>
     </div>
+
+    <div id="decisionCharts"></div>
   </div>
 
   <!-- ============ TAB 6: LANDING PAGE GENERATOR ============ -->
@@ -475,16 +502,32 @@ function removeRetailer(i){ retailers.splice(i,1); renderRetailerTable(); render
 
 function renderRetailerToggles(){
   const box = document.getElementById("retailerToggles");
-  box.innerHTML = `<label style="margin-bottom:6px;">Ритейлеры</label>` + retailers.map((r,i) => `
-    <label style="display:inline-flex;align-items:center;gap:5px;margin:0 10px 6px 0;font-size:12.5px;color:#374151;">
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <label style="margin:0;">Ритейлеры</label>
+      <span style="font-size:10.5px;">
+        <a href="#" style="color:var(--navy);" onclick="event.preventDefault();retailers.forEach(r=>r.active=true);recalc();">все</a> ·
+        <a href="#" style="color:var(--navy);" onclick="event.preventDefault();retailers.forEach(r=>r.active=false);recalc();">ни одного</a>
+      </span>
+    </div>` +
+    retailers.map((r,i) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;color:#374151;border-bottom:1px solid #F3F4F6;">
       <input type="checkbox" ${r.active?"checked":""} onchange="retailers[${i}].active=this.checked;recalc();"> ${r.name||"(без имени)"}
     </label>`).join("");
 }
 function renderSkuToggles(){
   const box = document.getElementById("skuToggles");
-  box.innerHTML = `<label style="margin-bottom:6px;">SKU</label>` + skus.map((s,i) => `
-    <label style="display:flex;align-items:center;gap:5px;margin-bottom:5px;font-size:12.5px;color:#374151;">
-      <input type="checkbox" ${s.active!==false?"checked":""} onchange="skus[${i}].active=this.checked;recalc();"> ${s.sku||"(без названия)"} (${s.category})
+  box.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <label style="margin:0;">SKU</label>
+      <span style="font-size:10.5px;">
+        <a href="#" style="color:var(--navy);" onclick="event.preventDefault();skus.forEach(s=>s.active=true);recalc();">все</a> ·
+        <a href="#" style="color:var(--navy);" onclick="event.preventDefault();skus.forEach(s=>s.active=false);recalc();">ни одного</a>
+      </span>
+    </div>` +
+    skus.map((s,i) => `
+    <label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12.5px;color:#374151;border-bottom:1px solid #F3F4F6;">
+      <input type="checkbox" ${s.active!==false?"checked":""} onchange="skus[${i}].active=this.checked;recalc();"> ${s.sku||"(без названия)"} <span style="color:var(--muted);">(${s.category})</span>
     </label>`).join("");
 }
 
@@ -562,10 +605,18 @@ function gatherInputs(){
   };
 }
 
-function renderResults(r){
-  document.getElementById("upliftVal").textContent = document.getElementById("salesUplift").value + "%";
-  document.getElementById("regRateVal").textContent = document.getElementById("regRate").value + "%";
+function syncFromSlider(numberId, val){
+  document.getElementById(numberId).value = val;
+  recalc();
+}
+function syncFromNumber(sliderId, val){
+  const slider = document.getElementById(sliderId);
+  const clamped = Math.max(+slider.min, Math.min(+slider.max, +val));
+  slider.value = clamped;
+  recalc();
+}
 
+function renderResults(r){
   const kpis = [
     {l:"Eligible baseline", n:fmtNum(r.eligibleBaseline)+" шт"},
     {l:"Incremental units", n:fmtNum(r.incrementalUnits)+" шт"},
@@ -681,24 +732,24 @@ let partners = [
 
 const MECHANICS = {
   "Yandex Kazakhstan": [
-    {title:"Cashback in Yandex Wallet", insight:"Пользователи Yandex привыкли к быстрому видимому кэшбэку — покупка + регистрация чека начисляет кэшбэк на баланс Yandex, который сразу можно потратить на такси/еду.", benefits:"Высокая вирусность за счёт мгновенной выгоды; охватывает ежедневных пользователей экосистемы.", risks:"Кэшбэк выглядит \"мелким\" на фоне цены техники — нужен достаточный размер.", skus:"Все SKU, особенно доступные модели (WW80AKAS22AELT, RB37A5200WW)"},
-    {title:"Yandex Plus бонусные баллы", insight:"Подписчики Plus ценят накопление баллов больше разового кэшбэка.", benefits:"Удерживает уже лояльную, платящую аудиторию.", risks:"Работает только на подписчиков Plus — меньший охват.", skus:"Премиальные SKU (RM90F671CWWT, WD18DB8999BZLD)"},
-    {title:"Промокод на поездку за покупкой", insight:"Логистика крупной техники — реальный барьер покупки; бесплатная поездка снимает его.", benefits:"Решает конкретную боль покупателя, низкая стоимость на единицу.", risks:"Не мотивирует саму покупку — слабее влияет на uplift.", skus:"Крупногабаритные SKU (холодильники)"},
+    {title:"Cashback in Yandex Wallet", slogan:"Покупай Samsung — получай кэшбэк на Yandex прямо на баланс", insight:"Пользователи Yandex привыкли к быстрому видимому кэшбэку — покупка + регистрация чека начисляет кэшбэк на баланс Yandex, который сразу можно потратить на такси/еду.", benefits:"Высокая вирусность за счёт мгновенной выгоды; охватывает ежедневных пользователей экосистемы.", risks:"Кэшбэк выглядит \"мелким\" на фоне цены техники — нужен достаточный размер.", skus:"Все SKU, особенно доступные модели (WW80AKAS22AELT, RB37A5200WW)"},
+    {title:"Yandex Plus бонусные баллы", slogan:"Больше баллов Plus за каждую покупку Samsung", insight:"Подписчики Plus ценят накопление баллов больше разового кэшбэка.", benefits:"Удерживает уже лояльную, платящую аудиторию.", risks:"Работает только на подписчиков Plus — меньший охват.", skus:"Премиальные SKU (RM90F671CWWT, WD18DB8999BZLD)"},
+    {title:"Промокод на поездку за покупкой", slogan:"Бесплатная поездка за новой техникой Samsung", insight:"Логистика крупной техники — реальный барьер покупки; бесплатная поездка снимает его.", benefits:"Решает конкретную боль покупателя, низкая стоимость на единицу.", risks:"Не мотивирует саму покупку — слабее влияет на uplift.", skus:"Крупногабаритные SKU (холодильники)"},
   ],
   "Arbuz.kz": [
-    {title:"Скидка на продукты при покупке техники", insight:"Покупатель крупной техники часто планирует бюджет на дом в целом — скидка на продукты логично продолжает \"домашний\" контекст.", benefits:"Высокая релевантность аудитории, понятная механика.", risks:"Не создаёт сильной эмоциональной связи с брендом Samsung.", skus:"Стиральные машины и холодильники — оба про быт/кухню"},
-    {title:"Бонусные баллы Arbuz за регистрацию чека", insight:"Постоянные покупатели уже копят баллы — интеграция с привычной механикой снижает трение.", benefits:"Не нужно объяснять новую механику.", risks:"Баллы менее ощутимы, чем прямой кэшбэк.", skus:"Все SKU"},
-    {title:"Контент \"техника + кухня\" в рассылке", insight:"Владельцы новой техники активно ищут контент по использованию.", benefits:"Низкая стоимость, укрепляет бренд.", risks:"Не двигает Sales Uplift напрямую — это engagement, не acquisition механика.", skus:"Холодильники (кухонный контент)"},
+    {title:"Скидка на продукты при покупке техники", slogan:"Купи технику Samsung — получи скидку на продукты в Arbuz.kz", insight:"Покупатель крупной техники часто планирует бюджет на дом в целом — скидка на продукты логично продолжает \"домашний\" контекст.", benefits:"Высокая релевантность аудитории, понятная механика.", risks:"Не создаёт сильной эмоциональной связи с брендом Samsung.", skus:"Стиральные машины и холодильники — оба про быт/кухню"},
+    {title:"Бонусные баллы Arbuz за регистрацию чека", slogan:"Двойные баллы Arbuz за покупку Samsung", insight:"Постоянные покупатели уже копят баллы — интеграция с привычной механикой снижает трение.", benefits:"Не нужно объяснять новую механику.", risks:"Баллы менее ощутимы, чем прямой кэшбэк.", skus:"Все SKU"},
+    {title:"Контент \"техника + кухня\" в рассылке", slogan:"Новая техника Samsung — новые рецепты от Arbuz.kz", insight:"Владельцы новой техники активно ищут контент по использованию.", benefits:"Низкая стоимость, укрепляет бренд.", risks:"Не двигает Sales Uplift напрямую — это engagement, не acquisition механика.", skus:"Холодильники (кухонный контент)"},
   ],
   "Wolt Kazakhstan": [
-    {title:"Бесплатная доставка еды на N месяцев", insight:"После крупной покупки/ремонта кухни люди откладывают готовку — бонус снимает бытовую нагрузку в переходный период.", benefits:"Необычный, запоминающийся бонус.", risks:"Слабая логическая связь с категорией — ниже конверсия в регистрацию.", skus:"Крупная кухонная техника (холодильники)"},
-    {title:"Wolt+ подписка в подарок", insight:"Подписка удерживает интерес дольше разового бонуса.", benefits:"Повторное касание с брендом весь месяц подписки.", risks:"Ценность не очевидна сразу в момент покупки.", skus:"Все SKU"},
-    {title:"Промокод на первый заказ", insight:"Низкобарьерный вход для тех, кто ещё не пользовался Wolt.", benefits:"Расширяет охват за пределы текущей базы Wolt — интересно и партнёру.", risks:"Низкая ценность для уже активных пользователей Wolt.", skus:"Все SKU"},
+    {title:"Бесплатная доставка еды на N месяцев", slogan:"Купи Samsung — готовка подождёт, доставка Wolt бесплатно", insight:"После крупной покупки/ремонта кухни люди откладывают готовку — бонус снимает бытовую нагрузку в переходный период.", benefits:"Необычный, запоминающийся бонус.", risks:"Слабая логическая связь с категорией — ниже конверсия в регистрацию.", skus:"Крупная кухонная техника (холодильники)"},
+    {title:"Wolt+ подписка в подарок", slogan:"Samsung дарит подписку Wolt+ на месяц", insight:"Подписка удерживает интерес дольше разового бонуса.", benefits:"Повторное касание с брендом весь месяц подписки.", risks:"Ценность не очевидна сразу в момент покупки.", skus:"Все SKU"},
+    {title:"Промокод на первый заказ", slogan:"Подарок от Wolt за покупку Samsung", insight:"Низкобарьерный вход для тех, кто ещё не пользовался Wolt.", benefits:"Расширяет охват за пределы текущей базы Wolt — интересно и партнёру.", risks:"Низкая ценность для уже активных пользователей Wolt.", skus:"Все SKU"},
   ],
   "Magnum": [
-    {title:"Сертификат на продукты на кассе", insight:"Покупатели Magnum привыкли к офлайн-механикам — знакомый формат для консервативной аудитории.", benefits:"Максимальный охват регионов, включая неактивных в приложениях.", risks:"Сложнее технически отследить (кассы, чеки) — выше операционная сложность.", skus:"Все SKU, особенно mass-сегмент"},
-    {title:"Magnum Bonus баллы ×2", insight:"Программа лояльности уже привычна широкой аудитории.", benefits:"Низкий порог входа, не нужно объяснять новую механику.", risks:"Менее \"вирусно\" в digital-каналах.", skus:"Все SKU"},
-    {title:"Розыгрыш приза среди зарегистрировавшихся", insight:"Розыгрыши традиционно хорошо работают в масс-ритейле Казахстана.", benefits:"Повышает Registration Rate без увеличения гарантированного бонуса.", risks:"Регуляторные требования к розыгрышам увеличивают Launch Complexity.", skus:"Премиальный SKU как приз (RM90F671CWWT)"},
+    {title:"Сертификат на продукты на кассе", slogan:"Купи Samsung — получи сертификат Magnum на кассе", insight:"Покупатели Magnum привыкли к офлайн-механикам — знакомый формат для консервативной аудитории.", benefits:"Максимальный охват регионов, включая неактивных в приложениях.", risks:"Сложнее технически отследить (кассы, чеки) — выше операционная сложность.", skus:"Все SKU, особенно mass-сегмент"},
+    {title:"Magnum Bonus баллы ×2", slogan:"Удвоенные баллы Magnum за технику Samsung", insight:"Программа лояльности уже привычна широкой аудитории.", benefits:"Низкий порог входа, не нужно объяснять новую механику.", risks:"Менее \"вирусно\" в digital-каналах.", skus:"Все SKU"},
+    {title:"Розыгрыш приза среди зарегистрировавшихся", slogan:"Купи Samsung — выиграй главный приз от Magnum", insight:"Розыгрыши традиционно хорошо работают в масс-ритейле Казахстана.", benefits:"Повышает Registration Rate без увеличения гарантированного бонуса.", risks:"Регуляторные требования к розыгрышам увеличивают Launch Complexity.", skus:"Премиальный SKU как приз (RM90F671CWWT)"},
   ],
 };
 
@@ -859,11 +910,19 @@ function computeFinalDecision(){
   const top = ranking[0];
   const second = ranking[1];
   const scoreGap = top.score - second.score;
-  const mechanics = MECHANICS[top.name] || [];
+
+  // manual override — if set, use the chosen partner for the mechanic/landing/export,
+  // but confidence/risk stay based on the actual auto-scored top pick (that's the honest signal)
+  const overrideName = document.getElementById("partnerOverride") ? document.getElementById("partnerOverride").value : "";
+  const isOverridden = !!overrideName;
+  const chosenPartner = isOverridden ? {name: overrideName, score: partners.find(p=>p.name===overrideName) ? computePartnerScore(partners.find(p=>p.name===overrideName)) : 0} : top;
+
+  const mechanics = MECHANICS[chosenPartner.name] || [];
   const primaryMechanic = mechanics[0];
   const altMechanics = mechanics.slice(1);
 
-  const activeRetailers = retailers.filter(x=>x.active).map(x=>x.name);
+  const retailerOverride = document.getElementById("landingRetailerOverride") ? document.getElementById("landingRetailerOverride").value : "";
+  const activeRetailers = retailerOverride === "all" ? retailers.map(x=>x.name) : retailers.filter(x=>x.active).map(x=>x.name);
   const activeSkus = skus.filter(x=>x.active!==false).map(x=>x.sku);
 
   // --- rule-based confidence: budget health + how clear-cut the partner choice is ---
@@ -885,10 +944,11 @@ function computeFinalDecision(){
   if (scoreGap < 0.3) risks.push(`Разрыв в score между топ-2 партнёрами меньше 0.3 — выбор партнёра чувствителен к изменению весов критериев.`);
   if (kaspi.decision === "Do Not Include" || kaspi.decision === "Phase 2") risks.push(`Kaspi.kz исключён из текущего запуска (${kaspi.decision}) — потенциальный доп. прирост ${fmtNum(kaspi.netIncrementalUnits)} шт не реализуется в этой волне.`);
   if (activeRetailers.length < retailers.length) risks.push(`Не все ритейлеры участвуют в акции — часть базового спроса не учтена в расчёте.`);
+  if (isOverridden) risks.push(`Партнёр выбран вручную (${chosenPartner.name}), а не по score (лидер по score — ${top.name}) — метрики confidence и score ниже относятся к автоматической рекомендации, не к выбранному партнёру.`);
   if (risks.length === 0) risks.push("Существенных рисков по текущим допущениям не выявлено — модель показывает здоровое покрытие бюджета и явного лидера среди партнёров.");
 
   return {
-    topPartner: top.name, topScore: top.score,
+    topPartner: chosenPartner.name, topScore: chosenPartner.score, isOverridden, autoTopPartner: top.name,
     primaryMechanic, altMechanics,
     activeSkus, activeRetailers,
     kaspiDecision: kaspi.decision, kaspiReason: kaspi.reason,
@@ -935,6 +995,58 @@ function renderFinalDecision(d){
     </div>`;
 
   document.getElementById("decisionColumns").innerHTML = recoHtml + metricsHtml;
+  renderDecisionCharts(d);
+}
+
+function renderDecisionCharts(d){
+  const r = d.result;
+  const ranking = window.lastPartnerRanking;
+
+  // --- Budget breakdown: horizontal stacked bar ---
+  const promoBudget = parseFloat(document.getElementById("promoBudget").value) || 0;
+  const digital = parseFloat(document.getElementById("digitalBudget").value) || 0;
+  const offline = parseFloat(document.getElementById("offlineBudget").value) || 0;
+  const ops = parseFloat(document.getElementById("opsBudget").value) || 0;
+  const other = parseFloat(document.getElementById("otherBudget").value) || 0;
+  const segments = [
+    {label:"Consumer Benefits (Samsung)", value:r.samsungNetCost, color:"#C9973E"},
+    {label:"Digital", value:digital, color:"#1B2559"},
+    {label:"Offline", value:offline, color:"#6B4FA0"},
+    {label:"Operations", value:ops, color:"#1D8A5C"},
+    {label:"Other", value:other, color:"#9BA3B5"},
+  ];
+  const total = segments.reduce((s,x)=>s+x.value,0) || 1;
+  const barHtml = segments.filter(s=>s.value>0).map(s =>
+    `<div style="width:${(s.value/total*100).toFixed(1)}%;background:${s.color};height:100%;" title="${s.label}: ${fmtMoney(s.value)}"></div>`
+  ).join("");
+  const legendHtml = segments.map(s =>
+    `<span style="display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);margin-right:14px;margin-bottom:4px;">
+      <span style="width:9px;height:9px;border-radius:2px;background:${s.color};display:inline-block;"></span>${s.label}: ${fmtMoney(s.value)}
+    </span>`).join("");
+
+  // --- Partner comparison: horizontal bars, all 4 ---
+  const maxScore = 10;
+  const partnerBarsHtml = ranking.map(p => `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+      <div style="width:150px;font-size:12px;color:#374151;text-align:right;flex-shrink:0;">${p.name}${p.name===d.topPartner?' ★':''}</div>
+      <div style="flex:1;background:#F3F4F6;border-radius:5px;height:20px;overflow:hidden;">
+        <div style="width:${(p.score/maxScore*100).toFixed(1)}%;background:${p.name===d.topPartner?'var(--gold)':'var(--navy)'};height:100%;"></div>
+      </div>
+      <div style="width:44px;font-size:12px;font-weight:600;color:var(--navy);">${p.score.toFixed(2)}</div>
+    </div>`).join("");
+
+  document.getElementById("decisionCharts").innerHTML = `
+    <div class="grid2">
+      <div class="panel" style="margin-bottom:0;">
+        <h2>Куда идёт бюджет</h2>
+        <div style="display:flex;height:28px;border-radius:6px;overflow:hidden;margin-bottom:12px;">${barHtml}</div>
+        <div>${legendHtml}</div>
+      </div>
+      <div class="panel" style="margin-bottom:0;">
+        <h2>Сравнение партнёров по score</h2>
+        ${partnerBarsHtml}
+      </div>
+    </div>`;
 }
 
 /* ============ LANDING PAGE GENERATOR — pure presentation of the already-computed scenario ============ */
@@ -967,9 +1079,8 @@ function buildLandingHtml(d){
       <img src="${SAMSUNG_LOGO}" style="height:22px;margin-bottom:16px;background:#fff;padding:6px 16px;border-radius:6px;">
       <p style="font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;">SAMSUNG × ${d.topPartner.toUpperCase()}</p>
       ${PARTNER_LOGOS[d.topPartner] ? `<img src="${PARTNER_LOGOS[d.topPartner]}" style="height:36px;margin-bottom:14px;background:#fff;padding:6px 14px;border-radius:8px;">` : ''}
-      <h1 style="font-family:'Space Grotesk',sans-serif;font-size:30px;margin-bottom:14px;">Купите Samsung — получите бонус от ${d.topPartner}</h1>
-      <p style="font-size:14px;color:#C7CCE0;max-width:560px;margin:0 auto;">${d.primaryMechanic ? d.primaryMechanic.insight : ''}</p>
-      <p style="margin-top:18px;font-size:12.5px;color:#9BA3C0;">Акция действует с ${fmtDateRu(startDate)} по ${fmtDateRu(endDate)}</p>
+      <h1 style="font-family:'Space Grotesk',sans-serif;font-size:30px;margin-bottom:14px;">${d.primaryMechanic ? d.primaryMechanic.slogan : `Купите Samsung — получите бонус от ${d.topPartner}`}</h1>
+      <p style="font-size:14px;color:#C7CCE0;">Успей до ${fmtDateRu(endDate)}</p>
     </div>
 
     <div style="padding:36px 40px;">
@@ -1161,7 +1272,8 @@ function exportExcel(){
 /* ============ POWERPOINT EXPORT — 2 English slides for management ============ */
 function exportPptx(){
   const r = window.lastResult, k = window.lastKaspi, d = window.lastDecision;
-  if (!r || !k || !d) { alert("Fill in the data on tabs 1–4 first."); return; }
+  const ranking = window.lastPartnerRanking;
+  if (!r || !k || !d || !ranking) { alert("Fill in the data on tabs 1–4 first."); return; }
   const g = id => document.getElementById(id).value;
 
   const pptx = new PptxGenJS();
@@ -1177,7 +1289,7 @@ function exportPptx(){
   s1.addText(d.primaryMechanic ? `${d.primaryMechanic.title} — ${d.primaryMechanic.insight}` : "", { x:0.5, y:1.7, w:12, h:0.9, fontSize:13, color:"6B7280" });
 
   const recoRows = [
-    ["Partner", `${d.topPartner} (score ${d.topScore.toFixed(2)}/10)`],
+    ["Partner", `${d.topPartner} (score ${d.topScore.toFixed(2)}/10)${d.isOverridden ? ' — manually selected' : ''}`],
     ["SKUs", d.activeSkus.join(", ")],
     ["Retailers", d.activeRetailers.join(", ")],
     ["Kaspi.kz", d.kaspiDecision],
@@ -1189,11 +1301,28 @@ function exportPptx(){
   s1.addText("KEY RISKS", { x:7, y:2.8, w:5.5, h:0.35, fontSize:11, bold:true, color:GOLD });
   s1.addText(risksText, { x:7, y:3.2, w:5.5, h:2.6, fontSize:10.5, color:"374151", valign:"top" });
 
-  // --- Slide 2: Key metrics ---
+  // --- Slide 2: Partner Comparison (ALL partners) + Retailer/SKU breakdown ---
   const s2 = pptx.addSlide();
   s2.background = { color: "FFFFFF" };
-  s2.addText("KEY METRICS", { x:0.5, y:0.4, w:12, h:0.5, fontSize:12, color:GOLD, bold:true, charSpacing:2 });
-  s2.addText("Budget, Registrations & Cost Efficiency", { x:0.5, y:0.9, w:12, h:0.7, fontSize:26, color:NAVY, bold:true });
+  s2.addText("PARTNER COMPARISON", { x:0.5, y:0.4, w:12, h:0.5, fontSize:12, color:GOLD, bold:true, charSpacing:2 });
+  s2.addText("How the 4 partners scored", { x:0.5, y:0.9, w:12, h:0.7, fontSize:26, color:NAVY, bold:true });
+
+  const partnerRows = [["Rank", "Partner", "Score / 10"]].concat(
+    ranking.map((p,i) => [String(i+1), p.name + (p.name===d.topPartner ? " ★" : ""), p.score.toFixed(2)])
+  );
+  s2.addTable(partnerRows, { x:0.5, y:1.9, w:6, colW:[1,3.5,1.5], fontSize:12, border:{type:"solid",color:"E5E7EB",pt:1}, autoPage:false });
+
+  const retailerRows = [["Retailer", "Washing Machines/mo", "Refrigerators/mo", "In Promo"]].concat(
+    retailers.map(x => [x.name, String(x.wm), String(x.ref), x.active ? "Yes" : "No"])
+  );
+  s2.addText("RETAILER BREAKDOWN", { x:7, y:1.9, w:5.5, h:0.35, fontSize:11, bold:true, color:GOLD });
+  s2.addTable(retailerRows, { x:7, y:2.3, w:5.5, colW:[2,1.3,1.3,0.9], fontSize:10, border:{type:"solid",color:"E5E7EB",pt:1}, autoPage:false });
+
+  // --- Slide 3: Key metrics ---
+  const s3 = pptx.addSlide();
+  s3.background = { color: "FFFFFF" };
+  s3.addText("KEY METRICS", { x:0.5, y:0.4, w:12, h:0.5, fontSize:12, color:GOLD, bold:true, charSpacing:2 });
+  s3.addText("Budget, Registrations & Cost Efficiency", { x:0.5, y:0.9, w:12, h:0.7, fontSize:26, color:NAVY, bold:true });
 
   const metricRows = [
     ["Total Campaign Investment", fmtMoney(r.totalCampaignInvestment)],
@@ -1207,7 +1336,7 @@ function exportPptx(){
     ["Cost per Registration (Funded)", r.costPerRegFunded!==null?fmtMoney(r.costPerRegFunded):"—"],
     ["Cost per Incremental Unit", r.costPerIncrementalUnit!==null?fmtMoney(r.costPerIncrementalUnit):"—"],
   ];
-  s2.addTable(metricRows, { x:0.5, y:1.9, w:9, colW:[5,4], fontSize:12, border:{type:"solid",color:"E5E7EB",pt:1}, autoPage:false });
+  s3.addTable(metricRows, { x:0.5, y:1.9, w:9, colW:[5,4], fontSize:12, border:{type:"solid",color:"E5E7EB",pt:1}, autoPage:false });
 
   pptx.writeFile({ fileName: "affiliate-promo-recommendation.pptx" });
 }
@@ -1220,6 +1349,20 @@ const MEDIA_CHANNELS = [
   {key:"display", name:"Programmatic Display", role:"Awareness / Retargeting", kpi:"CTR, CPM", pct:15, benchmark:1200, unit:"CPM", metric:"показы"},
   {key:"influencer", name:"Influencer/UGC", role:"Consideration / Trust", kpi:"Engagement Rate, Reach", pct:15, benchmark:2500, unit:"CPM", metric:"показы"},
 ];
+
+function updateChannelBudget(i, newAmount){
+  const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
+  if (digitalBudget <= 0) return;
+  newAmount = Math.max(0, parseFloat(newAmount) || 0);
+  const newPct = (newAmount / digitalBudget) * 100;
+  const oldOtherTotal = MEDIA_CHANNELS.reduce((s,c,idx) => idx===i ? s : s+c.pct, 0);
+  const remaining = Math.max(0, 100 - newPct);
+  MEDIA_CHANNELS.forEach((c,idx) => {
+    if (idx === i) { c.pct = newPct; }
+    else if (oldOtherTotal > 0) { c.pct = (c.pct / oldOtherTotal) * remaining; }
+  });
+  renderMediaPlan();
+}
 
 function renderMediaPlan(){
   const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
@@ -1235,8 +1378,8 @@ function renderMediaPlan(){
     return `<tr>
       <td><b>${c.name}</b></td>
       <td>${c.role}</td>
-      <td><input type="number" min="0" max="100" value="${c.pct}" style="width:60px;" onchange="MEDIA_CHANNELS[${i}].pct=parseFloat(this.value)||0;renderMediaPlan();"></td>
-      <td>${fmtMoney(allocated)}</td>
+      <td><input type="number" min="0" max="100" value="${normPct.toFixed(1)}" style="width:60px;" onchange="MEDIA_CHANNELS[${i}].pct=parseFloat(this.value)||0;renderMediaPlan();"></td>
+      <td><input type="number" min="0" value="${Math.round(allocated)}" style="width:110px;" onchange="updateChannelBudget(${i}, this.value)"></td>
       <td style="font-size:11px;color:var(--muted);">${c.kpi}</td>
       <td>≈ ${fmtNum(effect)} ${c.metric} <span style="color:var(--muted);font-size:10px;">(при ${c.unit} ${fmtMoney(c.benchmark)})</span></td>
     </tr>`;
