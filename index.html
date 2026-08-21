@@ -1070,12 +1070,15 @@ function computeKaspiOpportunity(mainResult){
   const regRate = parseFloat(document.getElementById("regRate").value) || 0;
 
   const kaspiBaseline = (kaspiWm + kaspiRef) * periodMonths;
-  const kaspiPromoUnits = kaspiBaseline * (1 + salesUplift/100);
-  const kaspiRegistrations = kaspiPromoUnits * (regRate/100);
+  const kaspiIncremental = kaspiBaseline * (salesUplift/100); // growth ONLY — this is what cannibalization should apply to, not the whole volume
+  const kaspiPromoUnits = kaspiBaseline + kaspiIncremental; // total volume during promo (baseline + growth)
+  const kaspiRegistrations = kaspiPromoUnits * (regRate/100); // baseline buyers can register too, not just the incremental ones
   const kaspiLiability = kaspiRegistrations * (mainResult.avgBonusPerReg || 0);
 
-  const cannibalizedUnits = kaspiPromoUnits * (cannibRate/100);
-  const netIncrementalUnits = kaspiPromoUnits - cannibalizedUnits;
+  // cannibalization only reduces the INCREMENTAL portion — baseline sales at Kaspi
+  // were happening anyway, they're not "new" and can't be cannibalized from themselves
+  const cannibalizedUnits = kaspiIncremental * (cannibRate/100);
+  const netIncrementalUnits = kaspiIncremental - cannibalizedUnits;
   const netIncrementalPctOfBaseline = mainResult.eligibleBaseline > 0
     ? (netIncrementalUnits / mainResult.eligibleBaseline) * 100 : 0;
 
@@ -1096,7 +1099,7 @@ function computeKaspiOpportunity(mainResult){
   }
 
   return {
-    kaspiBaseline, kaspiPromoUnits, kaspiRegistrations, kaspiLiability,
+    kaspiBaseline, kaspiIncremental, kaspiPromoUnits, kaspiRegistrations, kaspiLiability,
     cannibalizedUnits, netIncrementalUnits, netIncrementalPctOfBaseline,
     decision, reason,
   };
@@ -1113,15 +1116,17 @@ function renderKaspi(k){
     </div>`;
 
   const kpis = [
-    {l:"Дополнительный потенциал продаж", n:fmtNum(k.kaspiPromoUnits)+" шт/период"},
-    {l:"Каннибализация retailers", n:fmtNum(k.cannibalizedUnits)+" шт"},
-    {l:"Чистый прирост (не переток)", n:fmtNum(k.netIncrementalUnits)+" шт"},
-    {l:"Доп. регистрации", n:fmtNum(k.kaspiRegistrations)},
+    {l:"Kaspi Baseline (продавали бы и так)", n:fmtNum(k.kaspiBaseline)+" шт/период"},
+    {l:"Kaspi Incremental (рост от промо)", n:fmtNum(k.kaspiIncremental)+" шт/период"},
+    {l:"Total Promo Units", n:fmtNum(k.kaspiPromoUnits)+" шт/период", sub:"baseline + incremental"},
+    {l:"Каннибализация (от incremental, не от всего объёма)", n:fmtNum(k.cannibalizedUnits)+" шт"},
+    {l:"Net Incremental (не переток)", n:fmtNum(k.netIncrementalUnits)+" шт"},
+    {l:"Доп. регистрации", n:fmtNum(k.kaspiRegistrations), sub:"считается от Total Promo Units — покупатели baseline тоже могут зарегистрироваться"},
     {l:"Доп. потребность в бюджете", n:fmtMoney(k.kaspiLiability)},
-    {l:"Чистый прирост, % от базы", n:k.netIncrementalPctOfBaseline.toFixed(1)+"%"},
+    {l:"Net Incremental, % от базы", n:k.netIncrementalPctOfBaseline.toFixed(1)+"%"},
   ];
   document.getElementById("kaspiKpis").innerHTML = kpis.map(x=>
-    `<div class="kpi"><div class="n">${x.n}</div><div class="l">${x.l}</div></div>`).join("");
+    `<div class="kpi"><div class="n">${x.n}</div><div class="l">${x.l}</div>${x.sub?`<div style="font-size:9.5px;color:var(--muted);margin-top:4px;line-height:1.3;">${x.sub}</div>`:''}</div>`).join("");
 }
 
 /* ============ FINAL DECISION SCREEN — combines Simulator + Partner Score + Kaspi ============ */
@@ -1480,7 +1485,7 @@ function exportExcel(){
     ["Funded Consumer Benefit Spend", Math.round(r.fundedSpend)],
     ["Budget Coverage, %", r.budgetCoveragePct.toFixed(1)],
     ["Samsung Net Consumer-Benefit Cost", Math.round(r.samsungNetCost)],
-    ["Digital Marketing", Math.round(g("digitalBudget"))],
+    ["Digital Marketing (за весь период, monthly × period)", Math.round(r.totalDigitalBudget)],
     ["Offline Marketing", Math.round(g("offlineBudget"))],
     ["Operation Cost", Math.round(g("opsBudget"))],
     ["Other Costs", Math.round(g("otherBudget"))],
@@ -1525,11 +1530,13 @@ function exportExcel(){
     ["Kaspi baseline WM/мес.", g("kaspiWm")],
     ["Kaspi baseline Refrigerators/мес.", g("kaspiRef")],
     ["Каннибализация розницы, %", g("cannibRate")],
-    ["Дополнительный потенциал продаж, шт", Math.round(k.kaspiPromoUnits)],
-    ["Каннибализация retailers, шт", Math.round(k.cannibalizedUnits)],
-    ["Чистый прирост, шт", Math.round(k.netIncrementalUnits)],
-    ["Чистый прирост, % от базы", k.netIncrementalPctOfBaseline.toFixed(1)],
-    ["Доп. регистрации", Math.round(k.kaspiRegistrations)],
+    ["Kaspi Baseline (продавали бы и так), шт", Math.round(k.kaspiBaseline)],
+    ["Kaspi Incremental (рост от промо), шт", Math.round(k.kaspiIncremental)],
+    ["Total Promo Units (baseline + incremental), шт", Math.round(k.kaspiPromoUnits)],
+    ["Каннибализация (от incremental), шт", Math.round(k.cannibalizedUnits)],
+    ["Net Incremental (не переток), шт", Math.round(k.netIncrementalUnits)],
+    ["Net Incremental, % от базы", k.netIncrementalPctOfBaseline.toFixed(1)],
+    ["Доп. регистрации (от Total Promo Units)", Math.round(k.kaspiRegistrations)],
     ["Доп. потребность в бюджете, ₸", Math.round(k.kaspiLiability)],
     [], ["Рекомендация", k.decision],
     ["Обоснование", k.reason],
@@ -1563,13 +1570,15 @@ function exportExcel(){
   XLSX.utils.book_append_sheet(wb, wsFinal, "7. Final Recommendation");
 
   // 8. Bonus: Media Plan & Ideas
-  const digitalBudget = parseFloat(g("digitalBudget")) || 0;
+  const monthlyDigitalBudgetX = parseFloat(g("digitalBudget")) || 0;
+  const periodMonthsX = parseFloat(g("periodMonths")) || 1;
+  const digitalBudgetForMediaPlan = monthlyDigitalBudgetX * periodMonthsX; // total campaign budget, not monthly rate
   const totalPct = MEDIA_CHANNELS.reduce((s,c)=>s+c.pct, 0) || 1;
   const ideas = computeIdeas();
   const wsBonus = XLSX.utils.aoa_to_sheet([
     ["Digital Media Plan"],
-    ["Канал", "Роль в воронке", "Доля, %", "Бюджет, ₸", "KPI"],
-    ...MEDIA_CHANNELS.map(c => [c.name, c.role, ((c.pct/totalPct)*100).toFixed(1), Math.round(digitalBudget*(c.pct/totalPct)), c.kpi]),
+    ["Канал", "Роль в воронке", "Доля, %", "Бюджет за весь период, ₸", "KPI"],
+    ...MEDIA_CHANNELS.map(c => [c.name, c.role, ((c.pct/totalPct)*100).toFixed(1), Math.round(digitalBudgetForMediaPlan*(c.pct/totalPct)), c.kpi]),
     [], ["Идеи усиления кампании"],
     ...ideas.map((idea,i) => [`${i+1}. ${idea.title}`, idea.text]),
   ]);
@@ -1648,8 +1657,10 @@ const MEDIA_CHANNELS = [
   {key:"influencer", name:"Influencer/UGC", role:"Consideration / Trust", kpi:"Engagement Rate, Reach", pct:15, benchmark:2500, unit:"CPM", metric:"показы"},
 ];
 
-function syncDigitalBudget(val){
-  document.getElementById("digitalBudget").value = Math.max(0, parseFloat(val) || 0);
+function syncDigitalBudget(totalVal){
+  const periodMonths = parseFloat(document.getElementById("periodMonths").value) || 1;
+  const total = Math.max(0, parseFloat(totalVal) || 0);
+  document.getElementById("digitalBudget").value = periodMonths > 0 ? total / periodMonths : total;
   recalc();
 }
 
@@ -1665,10 +1676,12 @@ function updateChannelPct(i, newPct){
 }
 
 function updateChannelBudget(i, newAmount){
-  const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
-  if (digitalBudget <= 0) return;
+  const monthlyDigitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
+  const periodMonths = parseFloat(document.getElementById("periodMonths").value) || 1;
+  const totalDigitalBudget = monthlyDigitalBudget * periodMonths;
+  if (totalDigitalBudget <= 0) return;
   newAmount = Math.max(0, parseFloat(newAmount) || 0);
-  const newPct = (newAmount / digitalBudget) * 100;
+  const newPct = (newAmount / totalDigitalBudget) * 100;
   const oldOtherTotal = MEDIA_CHANNELS.reduce((s,c,idx) => idx===i ? s : s+c.pct, 0);
   const remaining = Math.max(0, 100 - newPct);
   MEDIA_CHANNELS.forEach((c,idx) => {
@@ -1700,15 +1713,17 @@ function renderCofundingBreakdown(){
 }
 
 function renderMediaPlan(){
-  const digitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
-  document.getElementById("mediaPoolInput").value = Math.round(digitalBudget);
+  const monthlyDigitalBudget = parseFloat(document.getElementById("digitalBudget").value) || 0;
+  const periodMonths = parseFloat(document.getElementById("periodMonths").value) || 1;
+  const totalDigitalBudget = monthlyDigitalBudget * periodMonths; // total campaign digital budget — consistent with Full Budget/Excel
+  document.getElementById("mediaPoolInput").value = Math.round(totalDigitalBudget);
 
   const totalPct = MEDIA_CHANNELS.reduce((s,c)=>s+c.pct, 0) || 1;
 
-  const head = `<tr><th>Канал</th><th>Роль в воронке</th><th>Доля, %</th><th>Бюджет, ₸</th><th>KPI</th><th>Ожидаемый эффект</th></tr>`;
+  const head = `<tr><th>Канал</th><th>Роль в воронке</th><th>Доля, %</th><th>Бюджет, ₸ (за весь период)</th><th>KPI</th><th>Ожидаемый эффект</th></tr>`;
   const rows = MEDIA_CHANNELS.map((c,i) => {
     const normPct = (c.pct/totalPct)*100;
-    const allocated = digitalBudget * (normPct/100);
+    const allocated = totalDigitalBudget * (normPct/100);
     const effect = c.unit === "CPC" ? (allocated / c.benchmark) : (allocated / c.benchmark * 1000);
     return `<tr>
       <td><b>${c.name}</b></td>
@@ -1721,10 +1736,11 @@ function renderMediaPlan(){
   }).join("");
   document.getElementById("mediaPlanTable").innerHTML = head + rows;
 
-  const totalAllocated = MEDIA_CHANNELS.reduce((s,c)=>s + digitalBudget*(c.pct/totalPct), 0);
+  const totalAllocated = MEDIA_CHANNELS.reduce((s,c)=>s + totalDigitalBudget*(c.pct/totalPct), 0);
   document.getElementById("mediaPlanTotals").innerHTML = `
-    <div class="kpi"><div class="n">${fmtMoney(totalAllocated)}</div><div class="l">Digital Budget распределён</div></div>
-    <div class="kpi"><div class="n">${(totalPct).toFixed(0)}%</div><div class="l">Сумма долей (нормализуется)</div></div>`;
+    <div class="kpi"><div class="n">${fmtMoney(totalAllocated)}</div><div class="l">Digital Budget за весь период распределён</div></div>
+    <div class="kpi"><div class="n">${(totalPct).toFixed(0)}%</div><div class="l">Сумма долей (нормализуется)</div></div>
+    <div class="kpi"><div class="n">${fmtMoney(monthlyDigitalBudget)}/мес. × ${periodMonths} мес.</div><div class="l">Расчёт полного бюджета</div></div>`;
 }
 
 function computeIdeas(){
