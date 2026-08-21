@@ -1765,6 +1765,12 @@ function computeIdeas(){
       title: `Фокус на ${topSku ? topSku.sku : "приоритетный SKU"} в контенте соцсетей`,
       text: topSku ? `${topSku.sku} — ${(topSku.share*100).toFixed(0)}% доли продаж в категории «${topSku.category}», самый объёмный SKU в акции. UGC/инфлюенсер-контент именно под эту модель даст наибольший охват на единицу бюджета, а не равномерное распределение по всем SKU.` : "Сфокусировать контент на самом объёмном SKU акции для максимальной эффективности.",
     },
+    {
+      title: d.altMechanics.length > 0 ? `A/B-тест: ${d.primaryMechanic.title} vs ${d.altMechanics[0].title}` : "A/B-тест механики регистрации",
+      text: d.altMechanics.length > 0
+        ? `Сейчас выбрана «${d.primaryMechanic.title}» по правилу (Budget Coverage ${window.lastResult.budgetCoveragePct.toFixed(0)}%), но «${d.altMechanics[0].title}» — не проигрышный вариант, просто для другого сценария бюджета. Разбить трафик 80/20 в пользу основной механики и замерить реальный Registration Rate по каждой — за одну волну получим факт вместо предположения, и это ляжет в историю кампаний для калибровки будущих допущений.`
+        : "Разбить трафик между двумя вариантами регистрационной формы (например, с фото чека и с ручным вводом номера) и сравнить реальный Registration Rate.",
+    },
   ];
 
   if (inactiveRetailers.length > 0){
