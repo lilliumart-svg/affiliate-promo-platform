@@ -230,7 +230,8 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
       <button class="btn btn-ghost" onclick="document.getElementById('importFile').click()">📄 Загрузить Excel/CSV с продажами</button>
       <input type="file" id="importFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="importSalesFile(event)">
       <p class="note" style="margin-top:8px;">Ожидаемые листы/колонки: Retailer, Washing Machines, Refrigerators (базовые продажи);
-        и/или Category, SKU, Sales Share, Bonus; и/или Partner, Mechanic, Period, Sales Uplift, Registration Rate (история прошлых кампаний — для калибровки допущений).
+        и/или Category, SKU, Sales Share, Bonus; и/или Partner, Mechanic, Period, Sales Uplift, Registration Rate (история прошлых кампаний — для калибровки допущений);
+        и/или Parameter, Value (лист Assumptions — Period, Promo Budget, Digital Marketing, Offline Marketing, Operation Cost, Sales Uplift, Registration Rate, Co-funding).
         Всё остальное можно править вручную ниже.</p>
       <div id="promoHistoryBox" style="margin-top:12px;"></div>
     </div>
@@ -1894,6 +1895,7 @@ function importSalesFile(ev){
     try {
       const wb = XLSX.read(e.target.result, {type:"array"});
       let historyFound = false;
+      let assumptionsFound = 0;
       wb.SheetNames.forEach(name => {
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[name]);
         if (rows.length === 0) return;
@@ -1922,11 +1924,41 @@ function importSalesFile(ev){
             regRate: parseFloat(r["Registration Rate"] ?? r.regRate ?? 0) || 0,
           })).filter(h => h.uplift > 0 || h.regRate > 0);
           historyFound = promoHistory.length > 0;
+        } else if (keys.some(k=>k.includes("parameter")) && keys.some(k=>k.includes("value"))) {
+          // Assumptions sheet: Parameter | Value — maps campaign-level inputs by keyword match
+          const ASSUMPTION_MAP = [
+            { match: /period/i, id: "periodMonths" },
+            { match: /promo\s*budget/i, id: "promoBudget" },
+            { match: /digital/i, id: "digitalBudget" },
+            { match: /offline/i, id: "offlineBudget" },
+            { match: /operation/i, id: "opsBudget" },
+            { match: /^other/i, id: "otherBudget" },
+            { match: /sales\s*uplift/i, id: "salesUplift" },
+            { match: /registration\s*rate/i, id: "regRate" },
+            { match: /margin/i, id: "marginPct" },
+            { match: /co-?funding/i, id: "cofundingAmount" },
+          ];
+          rows.forEach(r => {
+            const param = String(r.Parameter ?? r.parameter ?? "");
+            const value = parseFloat(r.Value ?? r.value);
+            if (!param || isNaN(value)) return;
+            const mapping = ASSUMPTION_MAP.find(m => m.match.test(param));
+            if (mapping) {
+              document.getElementById(mapping.id).value = value;
+              if (mapping.id === "salesUplift") document.getElementById("salesUpliftSlider").value = value;
+              if (mapping.id === "regRate") document.getElementById("regRateSlider").value = value;
+              assumptionsFound++;
+            }
+            if (/co-?funding/i.test(param)) document.getElementById("cofundingToggle").checked = true;
+          });
         }
       });
       renderSkuTable(); renderRetailerTable(); renderSkuToggles(); renderRetailerToggles(); recalc();
       renderPromoHistoryBox();
-      alert(historyFound ? `Данные импортированы, включая ${promoHistory.length} прошлых кампаний.` : "Данные импортированы.");
+      const parts = ["Данные импортированы."];
+      if (historyFound) parts.push(`История: ${promoHistory.length} прошлых кампаний.`);
+      if (assumptionsFound > 0) parts.push(`Допущения: ${assumptionsFound} параметров из листа Assumptions.`);
+      alert(parts.join(" "));
     } catch(err) { alert("Не смогла прочитать файл: " + err.message); }
   };
   reader.readAsArrayBuffer(file);
